@@ -1,6 +1,7 @@
 import json
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views import View
 
@@ -28,6 +29,7 @@ class HomePageView(View):
         server_videos = [
             {
                 'id': f'server-video-{submission.pk}',
+                'pk': submission.pk,
                 'title': submission.title,
                 'category': submission.category,
                 'description': submission.description,
@@ -60,8 +62,48 @@ class HomePageView(View):
 
         return {
             'form': form,
-            'form_data': request.POST.dict() if request.method == 'POST' else {},
+            'form_data': request.POST.dict() if request.method == 'POST' else form.initial,
+            'form_action_url': reverse('home'),
+            'home_url': reverse('home'),
             'server_videos_json': json.dumps(server_videos, ensure_ascii=False),
             'recent_submission': recent_submission,
             'initial_tab': request.GET.get('tab', 'admin' if request.method == 'POST' else 'home'),
         }
+
+
+class VideoEditView(View):
+    def get(self, request, pk):
+        video = get_object_or_404(Video, pk=pk)
+        form = VideoForm(instance=video)
+        # Reuse home context but force admin tab
+        ctx = HomePageView().get_context(request, form)
+        ctx['initial_tab'] = 'admin'
+        ctx['form_action_url'] = reverse('video_edit', args=[pk])
+        ctx['is_editing'] = True
+        return render(request, 'index.html', ctx)
+
+    def post(self, request, pk):
+        video = get_object_or_404(Video, pk=pk)
+        form = VideoForm(request.POST, instance=video)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Vídeo atualizado com sucesso!')
+            return redirect(f"{reverse('home')}?tab=admin")
+
+        ctx = HomePageView().get_context(request, form)
+        ctx['initial_tab'] = 'admin'
+        ctx['form_action_url'] = reverse('video_edit', args=[pk])
+        ctx['is_editing'] = True
+        return render(request, 'index.html', ctx)
+
+
+class VideoDeleteView(View):
+    def post(self, request, pk):
+        video = get_object_or_404(Video, pk=pk)
+        video.delete()
+        # If AJAX request, return JSON for JS to handle
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True})
+
+        messages.success(request, 'Vídeo removido com sucesso!')
+        return redirect(f"{reverse('home')}?tab=admin")

@@ -647,6 +647,91 @@ function showVideoDetail(videoId) {
         `;
     });
     document.getElementById('reaction-toast').className = "hidden";
+
+    // Render admin edit/delete buttons when the admin is logged in and this is a server-backed video
+    const adminActions = document.getElementById('admin-action-buttons');
+    if (adminActions) {
+        adminActions.innerHTML = '';
+        if (isAdminLoggedIn && (video.pk || (video.id && video.id.startsWith('server-video-')))) {
+            const pk = video.pk || (video.id && video.id.replace('server-video-', ''));
+            adminActions.innerHTML = `
+                <button onclick="adminEditServerVideo(${pk})" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold border border-blue-100 shadow-sm">Editar</button>
+                <button onclick="adminDeleteServerVideo(${pk})" class="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded-xl text-xs font-bold border border-red-200 shadow-sm">Deletar</button>
+            `;
+        }
+    }
+}
+
+// Admin helpers: navigate to edit page
+function adminEditServerVideo(pk) {
+    if (!pk) return;
+    window.location.href = `/videos/${pk}/edit/`;
+}
+
+// Show confirmation modal and perform deletion via POST
+function adminDeleteServerVideo(pk) {
+    if (!pk) return;
+    showDeleteConfirmModal(pk);
+}
+
+function showDeleteConfirmModal(pk) {
+    // If modal exists, remove
+    const existing = document.getElementById('confirm-delete-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'confirm-delete-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4">
+            <h3 class="font-display font-bold text-lg text-gray-800 mb-2">Confirmar exclusão</h3>
+            <p class="text-sm text-gray-600 mb-4">Deseja realmente excluir este vídeo? Esta ação não pode ser desfeita.</p>
+            <div class="flex gap-3 justify-end">
+                <button id="cancel-delete-btn" class="px-4 py-2 rounded-xl border bg-white">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 rounded-xl bg-red-600 text-white">Deletar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('cancel-delete-btn').addEventListener('click', () => { modal.remove(); });
+    document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+        performServerDelete(pk).finally(() => modal.remove());
+    });
+}
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+}
+
+function performServerDelete(pk) {
+    const url = `/videos/${pk}/delete/`;
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ pk })
+    }).then(resp => {
+        if (!resp.ok) throw new Error('Erro ao deletar');
+        return resp.json();
+    }).then(data => {
+        if (data && data.ok) {
+            alert('Vídeo removido com sucesso.');
+            // reload page to refresh server list
+            window.location.href = `${window.location.pathname}?tab=admin`;
+        } else {
+            alert('Não foi possível remover o vídeo.');
+        }
+    }).catch(err => {
+        console.error(err);
+        alert('Erro ao remover o vídeo. Verifique o console.');
+    });
 }
 
 function vRaw(str) {
