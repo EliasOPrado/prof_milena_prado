@@ -26,6 +26,7 @@
     <script>
         const SERVER_CARTOON_VIDEOS = {{ server_videos_json|default:'[]'|safe }};
         const INITIAL_TAB = "{{ initial_tab|default:'home' }}";
+        const IS_SUPERADMIN = {{ is_superadmin|yesno:"true,false" }};
     </script>
 </head>
 <body class="bg-brand-cream bg-doodle-grid min-h-screen flex flex-col justify-between selection:bg-yellow-200">
@@ -566,26 +567,35 @@
                     </p>
                 </div>
                 
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-mono font-bold text-gray-400 uppercase text-left mb-1.5">Digite a Senha da Prô:</label>
-                        <input
-                            type="password"
-                            id="admin-password-input"
-                            placeholder="Sua senha secreta..."
-                            class="w-full px-4 py-3 rounded-2xl bg-stone-50 border-2 border-yellow-101 focus:border-brand-sky focus:outline-none font-display text-sm font-medium transition-all text-center"
-                        />
-                        <div id="admin-login-error" class="hidden text-xs text-rose-500 font-bold mt-2 font-display">
-                            ❌ Senha incorreta! Digite com carinho. (Dica de teste: milena)
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-mono font-bold text-gray-400 uppercase text-left mb-1.5">Usuário (username):</label>
+                            <input
+                                type="text"
+                                id="admin-username-input"
+                                placeholder="Seu usuário Django..."
+                                class="w-full px-4 py-3 rounded-2xl bg-stone-50 border-2 border-yellow-101 focus:border-brand-sky focus:outline-none font-display text-sm font-medium transition-all text-center"
+                            />
                         </div>
+                        <div>
+                            <label class="block text-xs font-mono font-bold text-gray-400 uppercase text-left mb-1.5">Senha da Prô:</label>
+                            <input
+                                type="password"
+                                id="admin-password-input"
+                                placeholder="Sua senha secreta..."
+                                class="w-full px-4 py-3 rounded-2xl bg-stone-50 border-2 border-yellow-101 focus:border-brand-sky focus:outline-none font-display text-sm font-medium transition-all text-center"
+                            />
+                            <div id="admin-login-error" class="hidden text-xs text-rose-500 font-bold mt-2 font-display">
+                                ❌ Usuário ou senha incorretos.
+                            </div>
+                        </div>
+                        
+                        <button onclick="handleAdminLogin()" class="w-full bg-[#FF6B6B] hover:bg-rose-600 text-white font-display font-bold px-6 py-3.5 rounded-2xl shadow-lg border-b-4 border-red-750 transition-all transform hover:scale-102 active:scale-98 cursor-pointer text-sm font-bold">
+                            Confirmar Entrada 🗝️
+                        </button>
                     </div>
                     
-                    <button onclick="handleAdminLogin()" class="w-full bg-[#FF6B6B] hover:bg-rose-600 text-white font-display font-bold px-6 py-3.5 rounded-2xl shadow-lg border-b-4 border-red-750 transition-all transform hover:scale-102 active:scale-98 cursor-pointer text-sm font-bold">
-                        Confirmar Entrada 🗝️
-                    </button>
-                </div>
-                
-                <p class="text-[10px] font-mono text-gray-400 italic font-bold">Dica para o teste: Use a senha <span class="font-bold underline text-amber-600">milena</span></p>
+                    <p class="text-[10px] font-mono text-gray-400 italic font-bold">Use as credenciais do superusuário do Django (username + password).</p>
             </div>
 
             <!-- Conteúdo do Painel Admin (caso logado) -->

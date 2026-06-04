@@ -1,5 +1,6 @@
 import json
 from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -17,6 +18,11 @@ class HomePageView(View):
         return render(request, self.template_name, self.get_context(request, form))
 
     def post(self, request):
+        # Only allow saving when the session or authenticated user is a superuser
+        if not (request.session.get('is_superadmin') or (request.user.is_authenticated and request.user.is_superuser)):
+            messages.error(request, 'Acesso negado. Faça login como superusuário para publicar.')
+            return redirect(f"{reverse('home')}?tab=admin")
+
         form = VideoForm(request.POST)
         if form.is_valid():
             form.save()
@@ -68,12 +74,17 @@ class HomePageView(View):
             'server_videos_json': json.dumps(server_videos, ensure_ascii=False),
             'recent_submission': recent_submission,
             'initial_tab': request.GET.get('tab', 'admin' if request.method == 'POST' else 'home'),
+            'is_superadmin': bool(request.session.get('is_superadmin') or (request.user.is_authenticated and request.user.is_superuser)),
         }
 
 
 class VideoEditView(View):
     def get(self, request, pk):
         video = get_object_or_404(Video, pk=pk)
+        # Only allow editing by superadmin
+        if not (request.session.get('is_superadmin') or (request.user.is_authenticated and request.user.is_superuser)):
+            messages.error(request, 'Acesso negado. Faça login como superusuário para editar.')
+            return redirect(f"{reverse('home')}?tab=admin")
         form = VideoForm(instance=video)
         # Reuse home context but force admin tab
         ctx = HomePageView().get_context(request, form)
@@ -83,6 +94,11 @@ class VideoEditView(View):
         return render(request, 'index.html', ctx)
 
     def post(self, request, pk):
+        # Only allow updating by superadmin
+        if not (request.session.get('is_superadmin') or (request.user.is_authenticated and request.user.is_superuser)):
+            messages.error(request, 'Acesso negado. Faça login como superusuário para editar.')
+            return redirect(f"{reverse('home')}?tab=admin")
+
         video = get_object_or_404(Video, pk=pk)
         form = VideoForm(request.POST, instance=video)
         if form.is_valid():
@@ -99,6 +115,10 @@ class VideoEditView(View):
 
 class VideoDeleteView(View):
     def post(self, request, pk):
+        # Only allow deletion by superadmin
+        if not (request.session.get('is_superadmin') or (request.user.is_authenticated and request.user.is_superuser)):
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
         video = get_object_or_404(Video, pk=pk)
         video.delete()
         # If AJAX request, return JSON for JS to handle
@@ -107,3 +127,34 @@ class VideoDeleteView(View):
 
         messages.success(request, 'Vídeo removido com sucesso!')
         return redirect(f"{reverse('home')}?tab=admin")
+
+
+def admin_login(request):
+    """Autentica um usuário superuser via username+password e seta a flag de sessão."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'invalid_payload'}, status=400)
+
+    username = payload.get('username')
+    password = payload.get('password')
+    user = authenticate(request, username=username, password=password)
+    if user is not None and user.is_superuser:
+        login(request, user)
+        request.session['is_superadmin'] = True
+        return JsonResponse({'ok': True})
+
+    return JsonResponse({'ok': False, 'error': 'invalid_credentials'}, status=403)
+
+
+def admin_logout(request):
+    """Desloga o usuário e remove a flag de superadmin da sessão."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+
+    logout(request)
+    request.session.pop('is_superadmin', None)
+    return JsonResponse({'ok': True})

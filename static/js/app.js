@@ -158,7 +158,7 @@ function switchTab(tabId) {
 }
 
 // Lógica de Administração e Customização de Vídeos (Área da Prô)
-let isAdminLoggedIn = localStorage.getItem('pro_milena_admin_logged_in') === 'true';
+let isAdminLoggedIn = (typeof IS_SUPERADMIN !== 'undefined' && IS_SUPERADMIN) || localStorage.getItem('pro_milena_admin_logged_in') === 'true';
 
 function renderAdminSection() {
     const loginCard = document.getElementById('admin-login-card');
@@ -177,21 +177,50 @@ function renderAdminSection() {
 }
 
 function handleAdminLogin() {
+    const username = document.getElementById('admin-username-input').value.trim();
     const password = document.getElementById('admin-password-input').value;
-    if (password.toLowerCase() === 'milena') {
-        isAdminLoggedIn = true;
-        localStorage.setItem('pro_milena_admin_logged_in', 'true');
-        renderAdminSection();
-    } else {
-        const err = document.getElementById('admin-login-error');
-        err.classList.remove('hidden');
-    }
+    const errEl = document.getElementById('admin-login-error');
+    errEl.classList.add('hidden');
+
+    fetch('/admin-login/', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ username, password })
+    }).then(r => r.json().then(data => ({ status: r.status, body: data }))).then(({ status, body }) => {
+        if (status >= 200 && status < 300 && body.ok) {
+            isAdminLoggedIn = true;
+            try { localStorage.setItem('pro_milena_admin_logged_in', 'true'); } catch (e) {}
+            // reload so server-side context can reflect the login
+            window.location.reload();
+        } else {
+            errEl.classList.remove('hidden');
+        }
+    }).catch(err => {
+        console.error(err);
+        errEl.classList.remove('hidden');
+    });
 }
 
 function handleAdminLogout() {
-    isAdminLoggedIn = false;
-    localStorage.removeItem('pro_milena_admin_logged_in');
-    renderAdminSection();
+    fetch('/admin-logout/', {
+        credentials: 'same-origin',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({})
+    }).finally(() => {
+        isAdminLoggedIn = false;
+        try { localStorage.removeItem('pro_milena_admin_logged_in'); } catch (e) {}
+        window.location.reload();
+    });
 }
 
 function extractYouTubeId(url) {
