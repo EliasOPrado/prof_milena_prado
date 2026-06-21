@@ -1,0 +1,35 @@
+[Unit]
+Description=Prof. Milena Prado Gunicorn Service
+After=network.target postgres.service
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/root/software_projects/prof_milena_prado
+
+# Environment variables
+EnvironmentFile=/root/software_projects/prof_milena_prado/.env
+Environment="PATH=/root/software_projects/prof_milena_prado/venv/bin"
+Environment="PYTHONPATH=/root/software_projects/prof_milena_prado"
+
+# Start command
+ExecStart=/root/software_projects/prof_milena_prado/venv/bin/gunicorn \
+    --config gunicorn_config.py \
+    pro_milena.wsgi:application
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=prof_milena
+
+[Install]
+WantedBy=multi-user.target
