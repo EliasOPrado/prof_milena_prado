@@ -1,27 +1,32 @@
 #!/bin/bash
-
 set -e
 
-echo "Entering project..."
+echo "Deploy started"
+
 cd /root/software_projects/prof_milena_prado
 
-echo "Pulling latest code..."
+echo "Syncing code..."
 git fetch origin
 git reset --hard origin/main
 
-echo "Activating virtualenv..."
-source venv/bin/activate
+echo "Loading environment..."
+set -a
+source .env
+set +a
 
 echo "Installing dependencies..."
-pip install -r requirements.txt
+/root/software_projects/prof_milena_prado/venv/bin/pip install -r requirements.txt
 
 echo "Running migrations..."
-python manage.py migrate --noinput
+/root/software_projects/prof_milena_prado/venv/bin/python manage.py migrate --noinput
 
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
+echo "Collecting static..."
+/root/software_projects/prof_milena_prado/venv/bin/python manage.py collectstatic --noinput
 
-echo "Restarting systemd service..."
+echo "Validating Django config..."
+/root/software_projects/prof_milena_prado/venv/bin/python manage.py check --deploy
+
+echo "Restarting service..."
 systemctl restart prof-milena
 
-echo "Deployment finished."
+echo "Deploy complete"
